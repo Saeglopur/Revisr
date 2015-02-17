@@ -68,6 +68,9 @@ class Revisr_Process {
 		} else {
 			$branch = $args;
 		}
+
+		// Action hook fired before the checkout.
+		do_action( 'revisr_pre_checkout', $branch );
 		
 		$this->revisr->git->reset();
 		$this->revisr->git->checkout( $branch );
@@ -75,6 +78,10 @@ class Revisr_Process {
 		if ( $this->revisr->git->get_config( 'revisr', 'import-checkouts' ) === 'true' && $new_branch === false ) {
 			$this->revisr->db->import();
 		}
+
+		// Action hook fired after the checkout.
+		do_action( 'revisr_post_checkout', $branch );
+
 		$url = get_admin_url() . 'admin.php?page=revisr';
 		wp_redirect( $url );
 	}
@@ -105,10 +112,16 @@ class Revisr_Process {
 				exit();
 			}
 
+			// Action hook fired immediately before the commit.
+			do_action( 'revisr_pre_commit', $id, $staged_files );
+
 			// Add the necessary post meta and make the commit in Git.
 			add_post_meta( $id, 'committed_files', $staged_files );
 			add_post_meta( $id, 'files_changed', count( $staged_files ) );
-			$this->revisr->git->commit( $commit_msg, 'commit' );	
+			$commit_hash = $this->revisr->git->commit( $commit_msg, 'commit' );	
+
+			// Action hook fired immediately after the commit.
+			do_action( 'revisr_post_commit', $id, $staged_files, $commit_hash );
 		}
 	}
 	
@@ -241,6 +254,9 @@ class Revisr_Process {
 					Revisr_Admin::log( $msg, 'pull' );
 				}
 			}
+
+			// Action hook fired before a pull.
+			do_action( 'revisr_pre_pull', $commits_since );
 		}
 
 		if ( $this->revisr->git->get_config( 'revisr', 'import-pulls' ) === 'true' ) {
@@ -250,6 +266,9 @@ class Revisr_Process {
 		}
 		// Pull the changes or return an error on failure.
 		$this->revisr->git->pull();
+
+		// Action hook fired immediately after a pull.
+		do_action( 'revisr_post_pull', $commits_since );
 	}
 	
 	/**
@@ -258,7 +277,14 @@ class Revisr_Process {
 	 */
 	public function process_push() {
 		if ( wp_verify_nonce( $_REQUEST['revisr_dashboard_nonce'], 'revisr_dashboard_nonce' ) ) {
+
+			// Action hook fired immediately before a push.
+			do_action( 'revisr_pre_push' );
+
 			$this->revisr->git->push();
+
+			// Action hook fired immediately after a push.
+			do_action( 'revisr_post_push' );
 		}
 	}
 
